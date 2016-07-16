@@ -36,16 +36,14 @@ class BasedSemiSupervise:
 
     def predict(self, X):
         probas = self.predict_proba(X)
-        return self.classes_[np.argmax(probas, axis=1)].ravel()
+        return np.argmax(probas, axis=1)
 
     def predict_proba(self, X):
         check_is_fitted(self, 'X_')
         X_2d = check_array(X, accept_sparse = ['csc', 'csr', 'coo', 'dok',
                                                'bsr', 'lil', 'dia'])
-
-
-
-        return probabilities
+        samples_for_predict = np.array(np.all((self.X_[:,None,:]==X_2d[None,:,:]),axis=-1).nonzero()).T.tolist()
+        return self.label_distributions_[samples_for_predict[:,0]]
 
     def _get_method(self, X, y):
         if self.method == "pi":
@@ -79,8 +77,8 @@ class BasedSemiSupervise:
 
         Z_ = (self.sigma / (1 + self.sigma)) * ans_y
         self.initial_vector_ = np.ones(dimension) / n_classes
-
         self._get_method(B_, Z_)
+        return self
 
     def power_iteration(self, B, Z, x):
         iteration = 0
