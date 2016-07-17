@@ -20,15 +20,13 @@ In Proceedings of SIAM Conference on Data Mining (SDM 2012) (Vol. 9).
 #          ALexey Mishenin <alexey.mishenin@gmail.com>;
 import numpy as np
 
-from scipy import sparse
-from scipy.linalg import fractional_matrix_power as frac
-from scipy.sparse import csr_matrix as sp_mat
+from scipy.sparse import csr_matrix, dia_matrix
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 class BasedSemiSupervise:
 
-    def __init__(self, method='gs', sigma=0.5,  max_iter=100, mu=0.5):
+    def __init__(self, method='pi', sigma=0.5,  max_iter=100, mu=0.5):
         self.max_iter = max_iter
         self.method = method
         self.sigma = sigma
@@ -36,16 +34,13 @@ class BasedSemiSupervise:
 
     def predict(self, X):
         probas = self.predict_proba(X)
-        return np.argmax(probas, axis=1)
+        return np.argmax(probas, axis=1) + 1
 
     def predict_proba(self, X):
         check_is_fitted(self, 'X_')
-        X_2d = check_array(X, accept_sparse = ['csc', 'csr', 'coo', 'dok',
-                                               'bsr', 'lil', 'dia'])
-        samples_for_predict = np.array(np.all((self.X_[:,None,:]==X_2d[None,:,:]),axis=-1).nonzero()).T.tolist()
-        return self.label_distributions_[samples_for_predict[:,0]]
+        return self.label_distributions_
 
-    def _get_method(self, X, y):
+    def _get_method_(self, X, y):
         if self.method == "pi":
             self.label_distributions_ = self.power_iteration(X, y, self.initial_vector_)
         else:
@@ -53,31 +48,42 @@ class BasedSemiSupervise:
                              " are supported at this time" % self.method)
 
     def fit(self, X, y):
-        X, y = check_X_y(X, y)
+        check_X_y(X, y, accept_sparse=['csc', 'csr', 'coo', 'dok',
+                        'bsr', 'lil', 'dia'])
+        check_array(X, accept_sparse=['csc', 'csr', 'coo', 'dok',
+                        'bsr', 'lil', 'dia'])
+
+        X = csr_matrix(X)
         self.X_ = X
+
         check_classification_targets(y)
         classes = np.nonzero(y)
 
         n_samples, n_classes = len(y), len(classes)
 
         # create diagonal matrix of degree of nodes
-        D = sparse.dia_matrix(np.array(sp_mat.sum(self.X_, axis=0))[0])
-        D_left = frac(D, - self.sigma)
-        D_right = frac(D, 1 - self.sigma)
+        D = dia_matrix((np.array(csr_matrix.sum(self.X_, axis=1)).T[0], 0), shape=(n_samples, n_samples))
 
-        B_ = (D_left.dot(self.X_)).dot(D_right)
+        if (- self.sigma) == (self.sigma - 1):
+            D_left = D_right = D.power(- self.sigma)
+        else:
+            D_left = D.power(- self.sigma)
+            D_right = D.power(self.sigma - 1)
+
+        B_ = D_left.dot(self.X_).dot(D_right)
 
         # create labeled data Z
         dimension = (n_samples, n_classes)
+
         labels = np.nonzero(y)
         ans_y = np.zeros(dimension)
 
-        for l in labels:
+        for l in labels[0]:
             ans_y[l][y[l] - 1] = 1
 
         Z_ = (self.sigma / (1 + self.sigma)) * ans_y
         self.initial_vector_ = np.ones(dimension) / n_classes
-        self._get_method(B_, Z_)
+        self._get_method_(B_, Z_)
         return self
 
     def power_iteration(self, B, Z, x):
