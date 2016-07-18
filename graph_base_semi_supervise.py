@@ -43,6 +43,8 @@ class BasedSemiSupervise:
     def _get_method_(self, X, y):
         if self.method == "pi":
             self.label_distributions_ = self.power_iteration(X, y, self.initial_vector_)
+        elif self.method == "gs":
+            self.label_distributions_ = self.gauss_seidel(X, y, self.initial_vector_)
         else:
             raise ValueError("%s is not a valid method. Only pi"
                              " are supported at this time" % self.method)
@@ -93,4 +95,25 @@ class BasedSemiSupervise:
             y = ((1 / (1 + self.mu)) * (B.T.dot(x))) + Z
             x = np.copy(y)
             iteration += 1
-        return x
+        return y
+
+    def gauss_seidel(self, B, Z, x):
+        iteration = 0
+        P = B.T
+        n_samples = B.shape[0]
+        y = np.copy(x)
+        row, col = P.nonzero()
+        while iteration < self.max_iter:
+            for i in range(n_samples):
+                sum_prev = 0
+                sum_next = 0
+                current_samples = col[row == i]
+                for j in range(current_samples):
+                    if j < i:
+                        sum_prev += y[j] * float(P[i, j])
+                    else:
+                        sum_next += x[j] * float(P[i, j])
+                y[i] = (1 / (1 + self.mu)) * (sum_prev + sum_next) + Z[i]
+                iteration += 1
+                x = np.copy(y)
+        return y
