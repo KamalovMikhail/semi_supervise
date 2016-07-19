@@ -1,3 +1,5 @@
+#!python
+#cython: language_level=3, boundscheck=False
 """
 Graph based semi-supervise method.
 
@@ -18,6 +20,7 @@ In Proceedings of SIAM Conference on Data Mining (SDM 2012) (Vol. 9).
 # Authors: Mikhail Kamalov <mkamalovv@gmail.com>;
 #          Konstantin Avrachenkov <konstantin.avratchenkov@inria.fr>;
 #          ALexey Mishenin <alexey.mishenin@gmail.com>;
+import gauss_seidel_cython
 import numpy as np
 
 from scipy.sparse import csr_matrix, dia_matrix
@@ -26,7 +29,7 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 class BasedSemiSupervise:
 
-    def __init__(self, method='pi', sigma=0.5,  max_iter=100, mu=0.5):
+    def __init__(self, method='gs', sigma=0.5,  max_iter=100, mu=0.5):
         self.max_iter = max_iter
         self.method = method
         self.sigma = sigma
@@ -44,7 +47,7 @@ class BasedSemiSupervise:
         if self.method == "pi":
             self.label_distributions_ = self.power_iteration(X, y, self.initial_vector_)
         elif self.method == "gs":
-            self.label_distributions_ = self.gauss_seidel(X, y, self.initial_vector_)
+            self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X, y, self.initial_vector_, self.max_iter, self.mu)
         else:
             raise ValueError("%s is not a valid method. Only pi"
                              " are supported at this time" % self.method)
@@ -54,6 +57,7 @@ class BasedSemiSupervise:
                         'bsr', 'lil', 'dia'])
         check_array(X, accept_sparse=['csc', 'csr', 'coo', 'dok',
                         'bsr', 'lil', 'dia'])
+
 
         X = csr_matrix(X)
         self.X_ = X
@@ -97,23 +101,3 @@ class BasedSemiSupervise:
             iteration += 1
         return y
 
-    def gauss_seidel(self, B, Z, x):
-        iteration = 0
-        P = B.T
-        n_samples = B.shape[0]
-        y = np.copy(x)
-        row, col = P.nonzero()
-        while iteration < self.max_iter:
-            for i in range(n_samples):
-                sum_prev = 0
-                sum_next = 0
-                current_samples = col[row == i]
-                for j in range(current_samples):
-                    if j < i:
-                        sum_prev += y[j] * float(P[i, j])
-                    else:
-                        sum_next += x[j] * float(P[i, j])
-                y[i] = (1 / (1 + self.mu)) * (sum_prev + sum_next) + Z[i]
-                iteration += 1
-                x = np.copy(y)
-        return y
