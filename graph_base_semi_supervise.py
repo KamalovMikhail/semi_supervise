@@ -47,7 +47,9 @@ class BasedSemiSupervise:
         if self.method == "pi":
             self.label_distributions_ = self.power_iteration(X, y, self.initial_vector_)
         elif self.method == "gs":
-            self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X, y, self.initial_vector_, self.max_iter, self.mu)
+            #implementation Gauss-Seidel for the dense representation completely written in cython
+
+            self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X, y, self.initial_vector_, self.initial_vector_, self.max_iter, self.mu)
         else:
             raise ValueError("%s is not a valid method. Only pi"
                              " are supported at this time" % self.method)
@@ -59,7 +61,7 @@ class BasedSemiSupervise:
                         'bsr', 'lil', 'dia'])
 
 
-        X = csr_matrix(X)
+        #X = csr_matrix(X)
         self.X_ = X
 
         check_classification_targets(y)
@@ -68,7 +70,7 @@ class BasedSemiSupervise:
         n_samples, n_classes = len(y), len(classes)
 
         # create diagonal matrix of degree of nodes
-        D = dia_matrix((np.array(csr_matrix.sum(self.X_, axis=1)).T[0], 0), shape=(n_samples, n_samples))
+        D = dia_matrix((np.array(np.sum(self.X_, axis=1)), 0), shape=(n_samples, n_samples))
 
         if (- self.sigma) == (self.sigma - 1):
             D_left = D_right = D.power(- self.sigma)
@@ -76,7 +78,7 @@ class BasedSemiSupervise:
             D_left = D.power(- self.sigma)
             D_right = D.power(self.sigma - 1)
 
-        B_ = D_left.dot(self.X_).dot(D_right)
+        B_ = D_left.todense().dot(self.X_).dot(D_right.todense())
 
         # create labeled data Z
         dimension = (n_samples, n_classes)

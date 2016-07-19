@@ -6,7 +6,7 @@ from scipy.sparse import csr_matrix
 
 ssl = BasedSemiSupervise()
 
-X = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
+X = np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=np.float64)
 
 
 y = np.array([[0], [1], [2]])
