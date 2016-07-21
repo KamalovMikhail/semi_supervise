@@ -23,6 +23,7 @@ In Proceedings of SIAM Conference on Data Mining (SDM 2012) (Vol. 9).
 import gauss_seidel_cython
 import numpy as np
 
+from scipy import sparse
 from scipy.sparse import csr_matrix, dia_matrix
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
@@ -45,11 +46,10 @@ class BasedSemiSupervise:
 
     def _get_method_(self, X, y):
         if self.method == "pi":
-            self.label_distributions_ = self.power_iteration(X, y, self.initial_vector_)
+            self.label_distributions_ = self.power_iteration(X.T, y, self.initial_vector_)
         elif self.method == "gs":
             #implementation Gauss-Seidel for the dense representation completely written in cython
-
-            self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X, y, self.initial_vector_, self.initial_vector_, self.max_iter, self.mu)
+            self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X.T, y, self.initial_vector_, self.max_iter, self.mu)
         else:
             raise ValueError("%s is not a valid method. Only pi"
                              " are supported at this time" % self.method)
@@ -60,25 +60,31 @@ class BasedSemiSupervise:
         check_array(X, accept_sparse=['csc', 'csr', 'coo', 'dok',
                         'bsr', 'lil', 'dia'])
 
-
-        #X = csr_matrix(X)
         self.X_ = X
-
         check_classification_targets(y)
         classes = np.nonzero(y)
 
         n_samples, n_classes = len(y), len(classes)
-
         # create diagonal matrix of degree of nodes
-        D = dia_matrix((np.array(np.sum(self.X_, axis=1)), 0), shape=(n_samples, n_samples))
+        if sparse.isspmatrix(self.X_):
+            D = np.array(csr_matrix.sum(self.X_, axis=1)).T[0]
+        else:
+            D = np.array(np.sum(self.X_, axis=1))
 
         if (- self.sigma) == (self.sigma - 1):
-            D_left = D_right = D.power(- self.sigma)
+            D_left = D_right = np.power(D, - self.sigma)
         else:
-            D_left = D.power(- self.sigma)
-            D_right = D.power(self.sigma - 1)
+            D_left = np.power(D, - self.sigma)
+            D_right = np.power(self.sigma - 1)
+        print(D_left)
 
-        B_ = D_left.todense().dot(self.X_).dot(D_right.todense())
+        B_ = np.copy(X)
+        # M_ = D_left.dot(B_)
+        for i, d in enumerate(D_left):
+            B_[i, :] *= d
+        # B_ = M_.dot(D_right)
+        for i, d in enumerate(D_right):
+            B_[:, i] *= d
 
         # create labeled data Z
         dimension = (n_samples, n_classes)
@@ -98,7 +104,8 @@ class BasedSemiSupervise:
         iteration = 0
         y = np.copy(x)
         while iteration < self.max_iter:
-            y = ((1 / (1 + self.mu)) * (B.T.dot(x))) + Z
+            y = ((1 / (1 + self.mu)) * (B.dot(x))) + Z
+            print(y)
             x = np.copy(y)
             iteration += 1
         return y

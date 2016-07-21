@@ -1,27 +1,28 @@
+import numpy as np
 cimport numpy as np
 
-def gauss_seidel(np.ndarray[double, ndim=2] B, np.ndarray[double, ndim=2] Z, np.ndarray[double, ndim=2] x,  np.ndarray[double, ndim=2] y, int max_iter, float mu):
-        cdef unsigned int iteration , i, j = 0
-        cdef float sum_prev, sum_next = 0
-        cdef np.ndarray[long, ndim=2] current_samples
-        P = B.T
-        n_samples = B.shape[0]
-        row, col = P.nonzero()
-        print(iteration)
-        print(max_iter)
+cimport cython
+
+@cython.boundscheck(False)
+
+def gauss_seidel(np.ndarray B, np.ndarray Z, np.ndarray x, int max_iter, float mu, ):
+        cdef unsigned int iteration, i, j = 0
+        cdef unsigned int  n_classes = Z.shape[1]
+        cdef np.ndarray sum_prev, sum_next = np.zeros((1, n_classes))
+        cdef np.ndarray y = np.copy(x)
+        cdef np.ndarray P = np.copy(B)
+        cdef unsigned int n_samples = P.shape[0]
+
         while iteration < max_iter:
-            print(iteration)
             for i in range(0, n_samples):
-                sum_prev = 0
-                sum_next = 0
-                current_samples = col[row == i]
-                print(current_samples[0])
-                for j in current_samples[0]:
+                sum_prev = np.zeros((1, 2))
+                sum_next = np.zeros((1, 2))
+                for j in range(0, n_samples):
                     if j < i:
-                        sum_prev += y[j] * float(P[i, j])
+                        sum_prev += np.multiply(y[j], P[i, j])
                     else:
-                        sum_next += x[j] * float(P[i, j])
-                y[i] = (1 / (1 + mu)) * (sum_prev + sum_next) + Z[i]
-                iteration += 1
-                x = np.copy(y)
+                        sum_next += np.multiply(x[j], P[i, j])
+                y[i] = (1 / (1 + mu)) * np.add(sum_prev, sum_next) + Z[i]
+            iteration += 1
+            x = np.copy(y)
         return y
