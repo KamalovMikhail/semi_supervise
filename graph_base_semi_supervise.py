@@ -48,7 +48,7 @@ class BasedSemiSupervise:
         if self.method == "pi":
             self.label_distributions_ = self.power_iteration(X.T, y, self.initial_vector_)
         elif self.method == "gs":
-            #implementation Gauss-Seidel for the dense representation completely written in cython
+            #implementation Gauss-Seidel for the dense and sparse representations completely written in cython
             self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X.T, y, self.initial_vector_, self.max_iter, self.mu)
         else:
             raise ValueError("%s is not a valid method. Only pi"
@@ -59,7 +59,6 @@ class BasedSemiSupervise:
                         'bsr', 'lil', 'dia'])
         check_array(X, accept_sparse=['csc', 'csr', 'coo', 'dok',
                         'bsr', 'lil', 'dia'])
-
         self.X_ = X
         check_classification_targets(y)
         classes = np.nonzero(y)
@@ -79,12 +78,14 @@ class BasedSemiSupervise:
         print(D_left)
 
         B_ = np.copy(X)
+
         # M_ = D_left.dot(B_)
         for i, d in enumerate(D_left):
-            B_[i, :] *= d
+            X[i, :] *= d
         # B_ = M_.dot(D_right)
         for i, d in enumerate(D_right):
-            B_[:, i] *= d
+            X[:, i] *= d
+
 
         # create labeled data Z
         dimension = (n_samples, n_classes)
@@ -97,7 +98,7 @@ class BasedSemiSupervise:
 
         Z_ = (self.sigma / (1 + self.sigma)) * ans_y
         self.initial_vector_ = np.ones(dimension) / n_classes
-        self._get_method_(B_, Z_)
+        self._get_method_(X, Z_)
         return self
 
     def power_iteration(self, B, Z, x):
@@ -105,7 +106,6 @@ class BasedSemiSupervise:
         y = np.copy(x)
         while iteration < self.max_iter:
             y = ((1 / (1 + self.mu)) * (B.dot(x))) + Z
-            print(y)
             x = np.copy(y)
             iteration += 1
         return y
