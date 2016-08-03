@@ -66,39 +66,35 @@ class BasedSemiSupervise:
         n_samples, n_classes = len(y), len(classes)
         # create diagonal matrix of degree of nodes
         if sparse.isspmatrix(self.X_):
+            B_ = self.X_.copy()
             D = np.array(csr_matrix.sum(self.X_, axis=1)).T[0]
         else:
+            B_ = np.copy(self.X_)
             D = np.array(np.sum(self.X_, axis=1))
 
+        # if  (- self.sigma) and (self.sigma - 1) doesn't equals we have different diagonal matrix at the left and right sides
         if (- self.sigma) == (self.sigma - 1):
             D_left = D_right = np.power(D, - self.sigma)
         else:
             D_left = np.power(D, - self.sigma)
             D_right = np.power(self.sigma - 1)
-        print(D_left)
-
-        B_ = np.copy(X)
 
         # M_ = D_left.dot(B_)
         for i, d in enumerate(D_left):
-            X[i, :] *= d
+            B_[i, :] *= d
         # B_ = M_.dot(D_right)
         for i, d in enumerate(D_right):
-            X[:, i] *= d
-
-
+            B_[:, i] *= d
         # create labeled data Z
         dimension = (n_samples, n_classes)
-
         labels = np.nonzero(y)
         ans_y = np.zeros(dimension)
-
         for l in labels[0]:
             ans_y[l][y[l] - 1] = 1
 
         Z_ = (self.sigma / (1 + self.sigma)) * ans_y
         self.initial_vector_ = np.ones(dimension) / n_classes
-        self._get_method_(X, Z_)
+        self._get_method_(B_, Z_)
         return self
 
     def power_iteration(self, B, Z, x):

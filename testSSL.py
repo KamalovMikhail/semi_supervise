@@ -6,13 +6,18 @@ from scipy.sparse import csr_matrix
 
 ssl = BasedSemiSupervise(method="gs")
 
-X = csr_matrix([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=np.float)
+X = csr_matrix([[0, 1, 1], [1, 0, 1], [1, 1, 0]])
 
 
 y = np.array([[0], [1], [2]])
 
 ssl.fit(X, y)
+
+print("weights")
 print(ssl.label_distributions_)
+print("Answer")
 print(ssl.predict(X))
+print("X_")
+print(ssl.X_)
 
 
