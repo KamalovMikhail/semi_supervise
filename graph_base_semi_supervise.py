@@ -20,11 +20,11 @@ In Proceedings of SIAM Conference on Data Mining (SDM 2012) (Vol. 9).
 # Authors: Mikhail Kamalov <mkamalovv@gmail.com>;
 #          Konstantin Avrachenkov <konstantin.avratchenkov@inria.fr>;
 #          ALexey Mishenin <alexey.mishenin@gmail.com>;
-import gauss_seidel_cython
+import cython_module
 import numpy as np
 
 from scipy import sparse
-from scipy.sparse import csr_matrix, dia_matrix
+from scipy.sparse import csr_matrix
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
@@ -49,7 +49,9 @@ class BasedSemiSupervise:
             self.label_distributions_ = self.power_iteration(X.T, y, self.initial_vector_)
         elif self.method == "gs":
             #implementation Gauss-Seidel for the dense and sparse representations completely written in cython
-            self.label_distributions_ = gauss_seidel_cython.gauss_seidel(X.T, y, self.initial_vector_, self.max_iter, self.mu)
+            self.label_distributions_ = cython_module.gauss_seidel(X.T, y, self.initial_vector_, self.max_iter, self.mu)
+        elif self.method == "d-max":
+            self.label_distributions_ = cython_module.d_argmax(X.T, y, 1, self.max_iter, self.mu)
         else:
             raise ValueError("%s is not a valid method. Only pi"
                              " are supported at this time" % self.method)
@@ -66,11 +68,11 @@ class BasedSemiSupervise:
         n_samples, n_classes = len(y), len(classes)
         # create diagonal matrix of degree of nodes
         if sparse.isspmatrix(self.X_):
-            B_ = self.X_.copy()
-            D = np.array(csr_matrix.sum(self.X_, axis=1)).T[0]
+            B_ = self.X_.copy().astype(np.float)
+            D = np.array(csr_matrix.sum(self.X_, axis=1), dtype=np.float).T[0]
         else:
-            B_ = np.copy(self.X_)
-            D = np.array(np.sum(self.X_, axis=1))
+            B_ = np.copy(self.X_).astype(np.float)
+            D = np.array(np.sum(self.X_, axis=1), dtype=np.float)
 
         # if  (- self.sigma) and (self.sigma - 1) doesn't equals we have different diagonal matrix at the left and right sides
         if (- self.sigma) == (self.sigma - 1):
@@ -105,4 +107,6 @@ class BasedSemiSupervise:
             x = np.copy(y)
             iteration += 1
         return y
+
+
 
