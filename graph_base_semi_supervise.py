@@ -35,6 +35,7 @@ class BasedSemiSupervise:
         self.method = method
         self.sigma = sigma
         self.mu = mu
+        self.type_d_iteration = {'d-max': 1, 'd-cyc': 0}
 
     def predict(self, X):
         probas = self.predict_proba(X)
@@ -47,11 +48,14 @@ class BasedSemiSupervise:
     def _get_method_(self, X, y):
         if self.method == "pi":
             self.label_distributions_ = self.power_iteration(X.T, y, self.initial_vector_)
+        #implementation Gauss-Seidel for the dense and sparse representations completely written in cython
         elif self.method == "gs":
-            #implementation Gauss-Seidel for the dense and sparse representations completely written in cython
             self.label_distributions_ = cython_module.gauss_seidel(X.T, y, self.initial_vector_, self.max_iter, self.mu)
+        #implementation D-iteration (d-max, d-cyc) for the dense and sparse representations completely written in cython
         elif self.method == "d-max":
-            self.label_distributions_ = cython_module.d_argmax(X.T, y, 1, self.max_iter, self.mu)
+            self.label_distributions_ = cython_module.d_iteration(X.T, y, self.type_d_iteration["d-max"], self.max_iter, self.mu)
+        elif self.method == "d-cyc":
+            self.label_distributions_ = cython_module.d_iteration(X.T, y, self.type_d_iteration["d-cyc"], self.max_iter, self.mu)
         else:
             raise ValueError("%s is not a valid method. Only pi"
                              " are supported at this time" % self.method)

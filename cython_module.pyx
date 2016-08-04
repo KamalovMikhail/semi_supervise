@@ -1,3 +1,5 @@
+from scipy import sparse
+
 import numpy as np
 cimport numpy as np
 
@@ -33,22 +35,21 @@ def d_iteration(B, np.ndarray Z, int type, int max_iter, float mu,):
         cdef np.ndarray Fy = np.copy(Z)
         cdef np.ndarray Hy = np.copy(H)
         cdef np.ndarray e = np.zeros(n_samples)
-        cdef np.ndarray probability = np.empty(n_samples)
-        cdef unsigned int iteration, i, j = 0
+
+        cdef unsigned int iteration, i, j, s = 0
 
         while iteration < max_iter:
-            for s in range(0, n_samples):
+            for j in range(0, n_samples):
                 if type == 1:
                     j = np.argmax(np.sum(Z, axis=1))
-                elif type == 0:
-                    j = s
 
-                e[j] = 1
-                probability = B.dot(e)
-                for i in np.nonzero(B[j])[0]:
+                if sparse.isspmatrix(B):
+                    probability = np.array(B.getcol(j).toarray().T[0])
+                else:
+                    probability = B[:,j]
+                for i in np.nonzero(probability)[0]:
                     Fy[i] = Z[i] + (1 / (1 + mu)) * Z[j] * probability[i]
                     Hy[i] = H[i] + Z[i]
-                e *= 0
                 Fy[j] *= 0
                 Hy[j] = H[j] + Z[j]
                 H = np.copy(Hy)
